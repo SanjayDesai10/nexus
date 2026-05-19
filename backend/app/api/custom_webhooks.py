@@ -266,21 +266,29 @@ def _transform_payload(url: str, payload: dict) -> dict:
 
         return payload
 
+    # Extract data, handling both pipeline payloads (nested in `workflow`)
+    # and direct webhook payloads (flat structure)
     workflow = payload.get("workflow", {})
-    report = workflow.get("report", "")
-    signal = workflow.get("signal_payload", {})
-    status = workflow.get("status", "")
-    title = signal.get("title", "Nexus Pipeline Report")
-    pr_url = signal.get("url", "")
-    timestamp = payload.get("timestamp", "")
+    if workflow:
+        report = workflow.get("report", "")
+        signal = workflow.get("signal_payload", {})
+        status = workflow.get("status", "")
+        title = signal.get("title", "Nexus Pipeline Report")
+        url_link = signal.get("url", "")
+        body_text = report or workflow.get("result_summary", "") or "No report generated."
+    else:
+        # Payload directly from github_webhooks.py
+        signal = payload.get("signal", {})
+        status = ""
+        title = signal.get("title", "Nexus Event")
+        url_link = signal.get("url", "")
+        body_text = payload.get("notification", "No details provided.")
 
-    # The `report` field is the exact same text sent to Slack bot channels
-    # via _format_slack_report() in action.py. We use it as-is for consistency.
-    body_text = report or workflow.get("result_summary", "") or "No report generated."
+    timestamp = payload.get("timestamp", "")
 
     # ── Discord ──────────────────────────────────────────────
     if "discord.com/api/webhooks" in url or "discordapp.com/api/webhooks" in url:
-        color = 0x22C55E if status == "completed" else 0xEF4444
+        color = 0x22C55E if status == "completed" else 0xEF4444 if status == "failed" else 0x3B82F6
 
         # Discord uses **bold** same as Slack *bold*, convert
         discord_text = body_text.replace("*", "**")
@@ -293,17 +301,17 @@ def _transform_payload(url: str, payload: dict) -> dict:
             "title": f"🔗 {title}",
             "description": discord_text,
             "color": color,
-            "footer": {"text": "Nexus Pipeline"},
+            "footer": {"text": "Nexus"},
             "timestamp": timestamp,
         }
-        if pr_url:
-            embed["url"] = pr_url
+        if url_link:
+            embed["url"] = url_link
 
         return {"embeds": [embed]}
 
     # ── Slack Incoming Webhook ───────────────────────────────
     if "hooks.slack.com/services" in url:
-        # report is already in Slack mrkdwn format, send as-is
+        # report/notification is already in Slack mrkdwn format, send as-is
         return {
             "blocks": [
                 {

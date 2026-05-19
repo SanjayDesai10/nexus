@@ -13,6 +13,7 @@ import hashlib
 import hmac
 import logging
 import os
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Request, HTTPException
 from sqlalchemy import select
@@ -21,6 +22,7 @@ from app.models.database import AsyncSessionLocal
 from app.models.slack_models import MonitoredRepo, RepoChannelMapping, SlackInstallation
 from app.models.workflow_models import Workflow, WorkflowStatus
 from app.api.webhooks import run_workflow_background
+from app.api.custom_webhooks import deliver_to_webhooks
 from app.tools.slack import send_slack_message
 
 router = APIRouter()
@@ -362,6 +364,29 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
                     errors.append(f"#{m.channel_name}: {resp.get('error', 'unknown')}")
             except Exception as e:
                 errors.append(f"#{m.channel_name}: {str(e)}")
+
+        # Deliver to custom outgoing webhooks for all users who mapped this repo
+        try:
+            signal = event.get("pull_request") or event.get("issue") or {}
+            webhook_payload = {
+                "event": f"{event_type}.{action}",
+                "source": "nexus",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "notification": message,
+                "signal": {
+                    "title": signal.get("title", ""),
+                    "url": signal.get("html_url", ""),
+                    "repo": repo_full_name,
+                    "number": signal.get("number"),
+                    "author": signal.get("user", {}).get("login", "unknown"),
+                    "action": action,
+                },
+            }
+            unique_user_ids = {m.user_id for m in mappings}
+            for uid in unique_user_ids:
+                await deliver_to_webhooks(uid, webhook_payload)
+        except Exception as e:
+            logger.error(f"Custom webhook delivery error: {e}", exc_info=True)
 
         logger.info(
             f"Webhook for {repo_full_name} #{event.get('number', '?')} ({event_type}): "

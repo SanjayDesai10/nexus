@@ -15,6 +15,7 @@ import { IntegrationsPage } from "@/pages/IntegrationsPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { Layout } from "@/components/layout/Layout"
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute"
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,16 +41,16 @@ export function App() {
               <Route path="/integrations/slack/callback" element={<SlackCallback />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
 
-            {/* App pages — protected + layout */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<Layout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/workflow/:id" element={<WorkflowDetail />} />
-                <Route path="/trigger" element={<TriggerPage />} />
-                <Route path="/integrations" element={<IntegrationsPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
+              {/* App pages — protected + layout */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<Layout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/workflow/:id" element={<WorkflowDetail />} />
+                  <Route path="/trigger" element={<TriggerPage />} />
+                  <Route path="/integrations" element={<IntegrationsPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                </Route>
               </Route>
-            </Route>
 
               {/* Catch-all */}
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -57,6 +58,7 @@ export function App() {
           </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   )
 }
