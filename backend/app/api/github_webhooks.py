@@ -1,5 +1,5 @@
 """
-GitHub Webhook receiver — receives PR events and sends Slack notifications.
+GitHub Webhook receiver — receives PR and Issue events and sends Slack notifications.
 
 Supports two modes:
 1. GitHub App mode (preferred): Uses GITHUB_APP_WEBHOOK_SECRET env var to
@@ -99,6 +99,56 @@ def _format_pr_notification(event: dict) -> str:
     return "\n".join(lines)
 
 
+def _format_issue_notification(event: dict) -> str:
+    """Format a GitHub issue event into a readable Slack message."""
+    action = event.get("action", "unknown")
+    issue = event.get("issue", {})
+    repo = event.get("repository", {})
+
+    title = issue.get("title", "Untitled")
+    issue_url = issue.get("html_url", "")
+    issue_number = issue.get("number", "?")
+    author = issue.get("user", {}).get("login", "unknown")
+    repo_name = repo.get("full_name", "unknown")
+    body = (issue.get("body") or "")[:300]
+    labels = [label.get("name", "") for label in issue.get("labels", [])]
+
+    # Emoji based on action
+    emoji_map = {
+        "opened": "🆕",
+        "closed": "🔴",
+        "reopened": "🔄",
+        "edited": "✏️",
+        "labeled": "🏷️",
+        "unlabeled": "🏷️",
+        "assigned": "👤",
+        "unassigned": "👤",
+        "milestoned": "🏆",
+        "demilestoned": "🏆",
+        "pinned": "📌",
+        "unpinned": "📌",
+        "locked": "🔒",
+        "unlocked": "🔓",
+    }
+    emoji = emoji_map.get(action, "📋")
+
+    lines = [
+        f"{emoji} *Issue {action}*",
+        "",
+        f"*<{issue_url}|#{issue_number} {title}>*",
+        f"*Repo:* `{repo_name}`",
+        f"*Author:* {author}",
+    ]
+
+    if labels:
+        lines.append(f"*Labels:* {', '.join(labels)}")
+
+    if body and action == "opened":
+        lines.extend(["", f"_{body}{'…' if len(body) >= 300 else ''}_"])
+
+    return "\n".join(lines)
+
+
 def _build_workflow_payload(event: dict) -> dict:
     """Convert a GitHub pull_request webhook payload into our workflow signal."""
     pr = event.get("pull_request", {})
@@ -120,6 +170,23 @@ def _build_workflow_payload(event: dict) -> dict:
         "action": event.get("action", ""),
     }
 
+def _build_issue_payload(event:dict) -> dict:
+    """Convert a Github issue webhook payload into our workflow signal."""
+    issue = event.get("issue", {})
+    repo = event.get("repository", {})
+
+    return {
+        "title": issue.get("title", ""),
+        "url": issue.get("html_url", ""),
+        "body": issue.get("body") or "",
+        "author": issue.get("user", {}).get("login", "unknown"),
+        "repo": repo.get("full_name", "").lower(),
+        "number": issue.get("number") or event.get("number"),
+        "state": issue.get("state", ""),
+        "labels": [label.get("name", "") for label in issue.get("labels", [])],
+        "action": event.get("action", ""),
+    }
+
 
 @router.post("/webhook")
 async def receive_github_webhook(request: Request, background_tasks: BackgroundTasks):
@@ -131,11 +198,11 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
     signature = request.headers.get("X-Hub-Signature-256")
     event_type = request.headers.get("X-GitHub-Event", "")
 
-    # We only care about pull_request events
+    # We only care about pull_request and issues events
     if event_type == "ping":
         return {"ok": True, "message": "pong"}
 
-    if event_type != "pull_request":
+    if event_type not in ("pull_request", "issues"):
         return {"ok": True, "message": f"ignored event: {event_type}"}
 
     try:
@@ -151,7 +218,11 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
     # Actions that create a full workflow (agent pipeline run)
     workflow_actions = {"opened"}
     # Actions that only send a Slack notification (no workflow)
-    notify_only_actions = {"closed", "reopened", "synchronize", "ready_for_review", "review_requested"}
+    notify_only_actions = {
+        "closed", "reopened", "synchronize", "ready_for_review", "review_requested",
+        "edited", "labeled", "unlabeled", "assigned", "unassigned",
+        "milestoned", "demilestoned", "pinned", "unpinned", "locked", "unlocked",
+    }
     all_actions = workflow_actions | notify_only_actions
     if action not in all_actions:
         return {"ok": True, "message": f"ignored action: {action}"}
@@ -197,34 +268,51 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
             logger.info(f"No channel mappings for {repo_full_name}")
             return {"ok": True, "message": "no mappings"}
 
-        # Only create workflows for "opened" PRs — other actions just notify
+        # Only create workflows for "opened" PRs and "created" issues — other actions just notify
         workflows = []
         if action in workflow_actions:
             # Create ONE workflow per event.
-            # Try to assign it to the Nexus user who authored the PR.
-            pr_author_login = (
-                event.get("pull_request", {}).get("user", {}).get("login", "")
-            ).lower()
+            # Try to assign it to the Nexus user who authored the PR or issue
+            if event_type == "pull_request":
+                author_login = (
+                    event.get("pull_request", {}).get("user", {}).get("login", "")
+                ).lower()
+            elif event_type == "issues":
+                author_login = (
+                    event.get("issue", {}).get("user", {}).get("login", "")
+                ).lower()
+            else:
+                author_login = ""
 
             owner_user_id = mappings[0].user_id  # fallback
-            if pr_author_login:
+            if author_login:
                 from app.models.user_models import User
                 author_result = await db.execute(
                     select(User).where(
-                        User.github_username.ilike(pr_author_login)
+                        User.github_username.ilike(author_login)
                     )
                 )
                 author_user = author_result.scalar_one_or_none()
                 if author_user:
                     owner_user_id = author_user.id
 
-            workflow_payload = _build_workflow_payload(event)
-            workflow = Workflow(
-                user_id=owner_user_id,
-                signal_type="github_pr",
-                signal_payload=workflow_payload,
-                status=WorkflowStatus.pending,
-            )
+            if event_type == "pull_request":
+                workflow_payload = _build_workflow_payload(event)
+                workflow = Workflow(
+                    user_id=owner_user_id,
+                    signal_type="github_pr",
+                    signal_payload=workflow_payload,
+                    status=WorkflowStatus.pending,
+                )
+            elif event_type == "issues":
+                workflow_payload = _build_issue_payload(event)
+                workflow = Workflow(
+                    user_id=owner_user_id,
+                    signal_type="github_issue",
+                    signal_payload=workflow_payload,
+                    status=WorkflowStatus.pending,
+                )
+
             db.add(workflow)
             workflows.append(workflow)
 
@@ -245,7 +333,7 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
                 installations_map[inst.id] = inst
 
         # Format the notification message
-        message = _format_pr_notification(event)
+        message = _format_pr_notification(event) if event_type == "pull_request" else _format_issue_notification(event)
 
         # Send to all mapped channels (deduplicate by channel_id)
         sent_count = 0
@@ -269,14 +357,14 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
                 )
                 if resp.get("ok"):
                     sent_count += 1
-                    logger.info(f"Sent PR notification to #{m.channel_name} in {inst.team_name}")
+                    logger.info(f"Sent {event_type} notification to #{m.channel_name} in {inst.team_name}")
                 else:
                     errors.append(f"#{m.channel_name}: {resp.get('error', 'unknown')}")
             except Exception as e:
                 errors.append(f"#{m.channel_name}: {str(e)}")
 
         logger.info(
-            f"Webhook for {repo_full_name} PR#{event.get('number', '?')}: "
+            f"Webhook for {repo_full_name} #{event.get('number', '?')} ({event_type}): "
             f"sent={sent_count}, errors={len(errors)}"
         )
 
