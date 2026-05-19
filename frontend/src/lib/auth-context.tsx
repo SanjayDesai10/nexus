@@ -45,19 +45,19 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 const TOKEN_KEY = "nexus_token"
 
-const GITHUB_CLIENT_ID = "Ov23li2BuSs5rKzxj1yI"
+const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_OAUTH_CLIENT_ID
 
 export function getGithubOAuthURL() {
   const redirectUri = `${window.location.origin}/auth/github/callback`
   const scope = encodeURIComponent("repo user:email")
-  return `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`
+  return `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(GITHUB_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`
 }
 
 /** OAuth URL specifically for linking GitHub to an existing account */
 export function getGithubLinkURL() {
   const redirectUri = `${window.location.origin}/auth/github/callback`
   const scope = encodeURIComponent("repo user:email")
-  return `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=link`
+  return `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(GITHUB_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=link`
 }
 
 // ──────────────── Provider ────────────────

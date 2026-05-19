@@ -347,33 +347,35 @@ export function IntegrationsPage() {
                   <p className="text-xs text-chart-1/80">
                     The Nexus GitHub App is installed. PRs on connected repos will automatically trigger workflows.
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 text-xs"
-                    onClick={() => {
-                      const slug = import.meta.env.VITE_GITHUB_APP_SLUG
-                      if (slug) {
-                        window.open(`https://github.com/apps/${slug}/installations/new`, "_blank")
-                      }
-                    }}
-                  >
-                    Manage or add repos
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="gap-2 text-xs"
-                    onClick={handleDeleteGitHubApp}
-                    disabled={deleteGhAppMutation.isPending}
-                  >
-                    {deleteGhAppMutation.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                    Delete App
-                  </Button>
+                  <div className="flex flex-row items-center gap-2 pt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 text-xs"
+                      onClick={() => {
+                        const slug = import.meta.env.VITE_GITHUB_APP_SLUG
+                        if (slug) {
+                          window.open(`https://github.com/apps/${slug}/installations/new`, "_blank")
+                        }
+                      }}
+                    >
+                      Manage or add repos
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-2 text-xs"
+                      onClick={handleDeleteGitHubApp}
+                      disabled={deleteGhAppMutation.isPending}
+                    >
+                      {deleteGhAppMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Delete App
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-[8%]">
