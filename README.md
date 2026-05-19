@@ -25,7 +25,7 @@ The whole thing runs autonomously. After initial setup, users don't touch anythi
 | Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
 | Auth | JWT + GitHub OAuth + email/password |
 | Integrations | Slack Bot API, GitHub App webhooks, custom outgoing webhooks |
-| Observability | Omium SDK, WebSocket real-time traces |
+| Observability | WebSocket real-time traces |
 | Database | Neon PostgreSQL (serverless) |
 | Deployment | Render (backend), Vercel (frontend) |
 
@@ -39,7 +39,7 @@ nexus/
 │   │   ├── api/             # FastAPI routes (auth, workflows, slack, webhooks)
 │   │   ├── graphs/          # LangGraph pipeline orchestration
 │   │   ├── models/          # SQLAlchemy models + Pydantic schemas
-│   │   ├── services/        # LLM client, WebSocket manager, Omium tracing
+│   │   ├── services/        # LLM client, WebSocket manager
 │   │   ├── tools/           # Tavily search, Slack, email tools
 │   │   └── utils/           # Auth utilities
 │   └── requirements.txt
@@ -90,8 +90,7 @@ GITHUB_OAUTH_SECRET=your-github-client-secret
 SLACK_CLIENT_ID=your-slack-client-id
 SLACK_CLIENT_SECRET=your-slack-client-secret
 BACKEND_PUBLIC_URL=http://localhost:8000
-OMIUM_API_KEY=your-omium-key          # optional
-OMIUM_API_URL=https://api.omium.ai    # optional
+
 ```
 
 Start the backend:
@@ -166,7 +165,7 @@ Two ways to trigger:
 - **Tavily** - web search API
 - **SQLAlchemy** (async) - database ORM
 - **Slack SDK** - Slack Bot API
-- **Omium SDK** - tracing and observability (optional)
+
 - **React + Vite** - frontend
 - **Framer Motion** - animations
 - **TanStack Query** - data fetching

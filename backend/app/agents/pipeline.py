@@ -4,12 +4,6 @@ from app.agents.planner import planner_node
 from app.agents.researcher import researcher_node
 from app.agents.action import action_node
 
-# ── NOTE ──
-# Omium init + LangGraph instrumentation is handled centrally by
-# ``app.services.omium_tracing.init_omium()`` which runs during
-# FastAPI lifespan startup (see app/main.py).  Do NOT call
-# ``omium.init()`` or ``omium.instrument_langgraph()`` here —
-# doing so would create a duplicate project on the Omium dashboard.
 
 
 def build_pipeline(ws_manager=None):

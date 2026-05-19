@@ -7,13 +7,12 @@ from .models import user_models  # noqa: F401 — ensures User table is register
 from .models import slack_models  # noqa: F401 — ensures Slack tables are registered with Base
 from .models import webhook_models  # noqa: F401 — ensures CustomWebhook table is registered
 from app.api import webhooks, workflows, websocket, auth, slack, github_webhooks, custom_webhooks
-from app.services.omium_tracing import init_omium
+
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialise Omium tracing before anything else
-    init_omium()
+
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

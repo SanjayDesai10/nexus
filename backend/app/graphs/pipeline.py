@@ -11,7 +11,7 @@ from app.models.workflow_models import Workflow, WorkflowStatus,WorkflowStep
 from app.models.slack_models import SlackInstallation, RepoChannelMapping
 from app.agents.pipeline import run_pipeline
 from app.services.ws_manager import ws_manager
-from app.services.omium_tracing import flush_omium_traces
+
 
 
 
@@ -154,19 +154,4 @@ async def run_workflow(workflow_id: UUID) -> None:
         except Exception as e:
             logger.error(f"Custom webhook delivery error: {e}", exc_info=True)
         
-        # Ensure the workflow span is flushed to Omium dashboard
-        try:
-            from omium.integrations.tracer import get_current_tracer
-            tracer = get_current_tracer()
-            if tracer:
-                tracer.flush()
-        except Exception as e:
-            pass
 
-    # ── Flush Omium traces to the backend ──
-    # The SDK's auto-instrumented ainvoke() creates spans but its internal
-    # aflush() fires too early (before spans exit the context manager).
-    # This explicit flush sends the accumulated spans immediately after
-    # the entire workflow completes, so they appear on the Omium dashboard.
-    flush_omium_traces()
-    logger.debug("Omium traces flushed for workflow %s", workflow_id)
