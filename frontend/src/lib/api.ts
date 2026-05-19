@@ -329,3 +329,7 @@ export async function saveGitHubAppInstallation(
     body: JSON.stringify({ installation_id: installationId }),
   })
 }
+
+export async function deleteGitHubAppInstallation(): Promise<{ ok: boolean }> {
+  return apiFetch("/auth/github-app-installed", { method: "DELETE" })
+}

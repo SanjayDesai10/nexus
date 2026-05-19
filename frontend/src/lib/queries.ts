@@ -27,6 +27,7 @@ import {
   testCustomWebhook,
   getGitHubAppStatus,
   saveGitHubAppInstallation,
+  deleteGitHubAppInstallation,
   type WorkflowListResponse,
   type WorkflowDetailResponse,
   type TriggerResponse,
@@ -304,6 +305,16 @@ export function useSaveGitHubAppInstallation() {
     number
   >({
     mutationFn: (installationId) => saveGitHubAppInstallation(installationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.githubAppStatus })
+    },
+  })
+}
+
+export function useDeleteGitHubAppInstallation() {
+  const queryClient = useQueryClient()
+  return useMutation<{ ok: boolean }, Error>({
+    mutationFn: deleteGitHubAppInstallation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.githubAppStatus })
     },

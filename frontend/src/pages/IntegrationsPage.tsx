@@ -33,6 +33,7 @@ import {
   useTestCustomWebhook,
   useGitHubAppStatus,
   useSaveGitHubAppInstallation,
+  useDeleteGitHubAppInstallation,
 } from "@/lib/queries"
 import { getSlackAuthUrl } from "@/lib/api"
 import type { SlackInstallation } from "@/lib/api"
@@ -54,6 +55,7 @@ export function IntegrationsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const ghAppStatusQuery = useGitHubAppStatus()
   const saveGhAppMutation = useSaveGitHubAppInstallation()
+  const deleteGhAppMutation = useDeleteGitHubAppInstallation()
   const ghAppInstalled = ghAppStatusQuery.data?.installed ?? false
 
   useEffect(() => {
@@ -126,6 +128,15 @@ export function IntegrationsPage() {
         },
       },
     )
+  }
+
+  function handleDeleteGitHubApp() {
+    const confirmed = window.confirm(
+      "Delete this GitHub App connection from Nexus? Automatic PR workflows will stop until you install it again.",
+    )
+    if (!confirmed) return
+
+    deleteGhAppMutation.mutate()
   }
 
   return (
@@ -348,6 +359,20 @@ export function IntegrationsPage() {
                     }}
                   >
                     Manage or add repos
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-2 text-xs"
+                    onClick={handleDeleteGitHubApp}
+                    disabled={deleteGhAppMutation.isPending}
+                  >
+                    {deleteGhAppMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    Delete App
                   </Button>
                 </div>
               ) : (

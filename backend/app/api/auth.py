@@ -354,3 +354,18 @@ async def get_github_app_status(current_user: User = Depends(get_current_user)):
         "installed": current_user.github_app_installation_id is not None,
         "installation_id": current_user.github_app_installation_id,
     }
+
+
+# ──────────────── DELETE /github-app-installed ────────────────
+
+
+@router.delete("/github-app-installed")
+async def delete_github_app_installation(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove the stored GitHub App installation from the current user."""
+    current_user.github_app_installation_id = None
+    await db.commit()
+    await db.refresh(current_user)
+    return {"ok": True}
