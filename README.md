@@ -2,7 +2,7 @@
 
 Autonomous multi-agent pipeline that watches GitHub pull requests, investigates them with AI agents, and delivers analysis reports to Slack. No human in the loop.
 
-## What it does
+## What it does 
 
 1. A PR is opened on a connected GitHub repo
 2. GitHub webhook fires and hits Nexus
